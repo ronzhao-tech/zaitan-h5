@@ -163,7 +163,7 @@ body{font-family:'Noto Sans SC',sans-serif}
         <span class="font-bold text-gray-900">再探！</span>
       </div>
       <div class="flex items-center gap-3">
-        <button onclick="showToast('添加功能开发中')" class="w-9 h-9 flex items-center justify-center rounded-full bg-sky-50 text-sky-600"><i class="fas fa-plus"></i></button>
+        <button onclick="showAddArticleModal()" class="w-9 h-9 flex items-center justify-center rounded-full bg-sky-50 text-sky-600"><i class="fas fa-plus"></i></button>
         <button onclick="go('profile')" class="w-9 h-9 rounded-full bg-gray-200 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" class="w-full h-full"></button>
       </div>
     </div>
@@ -180,36 +180,13 @@ body{font-family:'Noto Sans SC',sans-serif}
       <input type="text" placeholder="搜索文章..." class="w-full pl-11 pr-4 py-3 bg-white rounded-xl text-sm outline-none border border-gray-100">
     </div>
   </div>
-  <div class="px-4 space-y-3 pb-24">
-    <div onclick="go('reader')" class="bg-white rounded-xl p-4 shadow-sm">
-      <div class="flex gap-3">
-        <img src="https://picsum.photos/seed/article1/400/200" class="w-24 h-16 object-cover rounded-lg flex-shrink-0">
-        <div class="flex-1 min-w-0">
-          <h3 class="font-medium text-gray-900 mb-1" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">除了「健康」，探索Apple Watch不为人知的妙用</h3>
-          <div class="flex items-center gap-2 text-xs text-gray-400">
-            <span>少数派</span><span>·</span><span>8分钟</span>
-          </div>
-        </div>
+  <div id="articles-list" class="px-4 space-y-3 pb-24">
+    <!-- 文章列表将由 JavaScript 动态渲染 -->
+    <div class="text-center py-12">
+      <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-inbox text-3xl text-gray-400"></i>
       </div>
-      <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-        <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">科技</span>
-        <i class="far fa-star text-gray-400"></i>
-      </div>
-    </div>
-    <div onclick="go('reader')" class="bg-white rounded-xl p-4 shadow-sm">
-      <div class="flex gap-3">
-        <img src="https://picsum.photos/seed/article2/400/200" class="w-24 h-16 object-cover rounded-lg flex-shrink-0">
-        <div class="flex-1 min-w-0">
-          <h3 class="font-medium text-gray-900 mb-1" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">2024年产品设计趋势：AI如何改变工作流</h3>
-          <div class="flex items-center gap-2 text-xs text-gray-400">
-            <span>即刻</span><span>·</span><span>12分钟</span>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-        <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">产品</span>
-        <i class="fas fa-star text-yellow-400"></i>
-      </div>
+      <p class="text-gray-500">暂无文章，点击右上角 + 添加</p>
     </div>
   </div>
 </div>
@@ -480,6 +457,125 @@ async function realSendCode() {
   } else {
     showToast(result?.error || '发送失败');
   }
+}
+
+// 显示添加文章弹窗
+function showAddArticleModal() {
+  const modal = document.createElement('div');
+  modal.id = 'add-article-modal';
+  modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-end';
+  modal.innerHTML = `
+    <div class="bg-white w-full rounded-t-3xl p-6 animate-slide-up">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-900">添加文章</h3>
+        <button onclick="closeAddArticleModal()" class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+          <i class="fas fa-times text-gray-600"></i>
+        </button>
+      </div>
+      <div class="mb-6">
+        <label class="block text-gray-700 text-sm font-medium mb-2">文章链接</label>
+        <input type="url" id="article-url-input" placeholder="https://..." 
+          class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-sky-500">
+        <p class="text-gray-400 text-xs mt-2">支持微信公众号、知乎、简书等平台</p>
+      </div>
+      <button onclick="addArticle()" id="add-article-btn" 
+        class="w-full py-4 bg-sky-500 text-white font-bold text-lg rounded-2xl">
+        开始解析
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function closeAddArticleModal() {
+  const modal = document.getElementById('add-article-modal');
+  if (modal) modal.remove();
+}
+
+async function addArticle() {
+  const urlInput = document.getElementById('article-url-input');
+  const btn = document.getElementById('add-article-btn');
+  const url = urlInput.value.trim();
+  
+  if (!url || !url.startsWith('http')) {
+    showToast('请输入有效的文章链接');
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = '解析中...';
+  
+  const token = localStorage.getItem('token');
+  if (!token) {
+    showToast('请先登录');
+    closeAddArticleModal();
+    return;
+  }
+  
+  try {
+    const result = await apiPost('/articles', { url });
+    
+    if (result && result.success) {
+      showToast('文章添加成功！');
+      closeAddArticleModal();
+      loadArticles();
+    } else {
+      showToast(result?.error || '添加失败');
+      btn.disabled = false;
+      btn.textContent = '开始解析';
+    }
+  } catch (err) {
+    showToast('网络错误，请重试');
+    btn.disabled = false;
+    btn.textContent = '开始解析';
+  }
+}
+
+async function loadArticles() {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  
+  try {
+    const result = await apiGet('/articles');
+    if (result && result.articles) {
+      renderArticles(result.articles);
+    }
+  } catch (err) {
+    console.error('加载文章失败:', err);
+  }
+}
+
+function renderArticles(articles) {
+  const container = document.getElementById('articles-list');
+  if (!container) return;
+  
+  if (articles.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12">
+        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-inbox text-3xl text-gray-400"></i>
+        </div>
+        <p class="text-gray-500">暂无文章，点击右上角 + 添加</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = articles.map(article => `
+    <div onclick="go('reader')" class="bg-white rounded-2xl p-4 border border-gray-100 active:scale-95 transition-transform cursor-pointer">
+      <div class="flex gap-4">
+        <div class="flex-1">
+          <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${article.title}</h3>
+          <p class="text-gray-500 text-sm mb-3 line-clamp-2">${article.summary || '暂无摘要'}</p>
+          <div class="flex items-center gap-3 text-xs text-gray-400">
+            <span class="flex items-center gap-1"><i class="far fa-clock"></i>${article.readTime}分钟</span>
+            <span>${article.source || '未知来源'}</span>
+          </div>
+        </div>
+        ${article.imageUrl ? `<img src="${article.imageUrl}" class="w-24 h-16 object-cover rounded-lg flex-shrink-0" onerror="this.style.display='none'">` : ''}
+      </div>
+    </div>
+  `).join('');
 }
 </script>
 </body>
